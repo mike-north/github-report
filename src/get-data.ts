@@ -8,11 +8,11 @@ import chalk from "chalk";
 
 dotenv.config();
 
-const BACKOFF_TIME_BASE = 30 * 1000; // 30s
-const BACKOFF_TIME_VARIANCE = 5 * 1000; // 5s
+const BACKOFF_TIME_BASE = 20 * 1000; // 20s
+const BACKOFF_TIME_VARIANCE = 3 * 1000; // 3s
 
 function getBackoffTime(tries: number) {
-  const coeff = tries * tries * tries;
+  const coeff = tries * tries;
   const variance = Math.round(Math.random() * BACKOFF_TIME_VARIANCE);
   return (BACKOFF_TIME_BASE + variance) * coeff;
 }
