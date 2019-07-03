@@ -1,0 +1,30 @@
+{
+  "name": "github-report",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "license": "BSD-2-Clause",
+  "scripts": {
+    "start": "yarn ts-node src/index.ts"
+  },
+  "dependencies": {
+    "@octokit/graphql": "^2.0.0",
+    "csv-stringify": "^5.3.0",
+    "dotenv": "^8.0.0",
+    "ora": "^3.4.0",
+    "ts-node": "^8.3.0",
+    "typescript": "^3.5.2",
+    "yargs": "^13.2.4"
+  },
+  "volta": {
+    "node": "12.5.0",
+    "yarn": "1.16.0"
+  },
+  "devDependencies": {
+    "@types/dotenv": "^6.1.1",
+    "@types/listr": "^0.14.0",
+    "@types/yargs": "^13.0.0",
+    "eslint": "^6.0.1",
+    "listr": "^0.14.3",
+    "nodemon": "^1.19.1"
+  }
+}
