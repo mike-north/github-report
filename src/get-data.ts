@@ -4,6 +4,7 @@ import * as Listr from "listr";
 import { writeFileSync, mkdirSync, existsSync } from "fs";
 import * as csvStringify from "csv-stringify";
 import { join } from "path";
+import chalk from "chalk";
 
 dotenv.config();
 
@@ -88,6 +89,9 @@ namespace GQL {
     comments: {
       totalCount: number;
     };
+    author: {
+      login: string;
+    };
     pullRequest: {
       title: string;
       url: string;
@@ -120,10 +124,10 @@ namespace GQL {
   }
 }
 
-async function gqlQuery(query: string): Promise<any> {
+async function gqlQuery(query: string, token: string): Promise<any> {
   return await graphql(query, {
     headers: {
-      authorization: `token ${process.env.GH_TOKEN}`
+      authorization: `token ${token}`
     }
   });
 }
@@ -154,10 +158,12 @@ async function retrieveAll<T extends object>(
 }
 const prRecordRetriever: (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) => RecordRetriever<GQL.PullRequest> = (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) =>
@@ -188,6 +194,7 @@ const prRecordRetriever: (
                   comments {
                     totalCount
                   }
+                  author { login }
                   url
                   additions
                   deletions
@@ -218,7 +225,8 @@ const prRecordRetriever: (
           }
         }
       }
-    `
+    `,
+      token
     );
     const { totalCount, nodes, pageInfo } = pullRequestContributions;
     let out = {
@@ -231,10 +239,12 @@ const prRecordRetriever: (
 
 const repoRecordRetriever: (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) => RecordRetriever<GQL.RepoCreation> = (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) =>
@@ -284,7 +294,8 @@ const repoRecordRetriever: (
           }
         }
       }
-    `
+    `,
+      token
     );
     const { totalCount, nodes, pageInfo } = repositoryContributions;
     return {
@@ -296,10 +307,12 @@ const repoRecordRetriever: (
 
 const issueRecordRetriever: (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) => RecordRetriever<GQL.Issue> = (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) =>
@@ -333,6 +346,7 @@ const issueRecordRetriever: (
                   comments {
                     totalCount
                   }
+                  author { login }
                   repository {
                     url
                     stargazers {
@@ -357,7 +371,8 @@ const issueRecordRetriever: (
           }
         }
       }
-    `
+    `,
+      token
     );
     const { totalCount, nodes, pageInfo } = issueContributions;
     return {
@@ -368,10 +383,12 @@ const issueRecordRetriever: (
   };
 const codeReviewRecordRetriever: (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) => RecordRetriever<GQL.PullRequestReview> = (
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) =>
@@ -404,6 +421,9 @@ const codeReviewRecordRetriever: (
                   url
                   comments {
                     totalCount
+                  }
+                  author {
+                    login
                   }
                   pullRequest {
                     title
@@ -439,7 +459,8 @@ const codeReviewRecordRetriever: (
           }
         }
       }
-    `
+    `,
+      token
     );
     const { totalCount, nodes, pageInfo } = pullRequestReviewContributions;
     return {
@@ -450,6 +471,7 @@ const codeReviewRecordRetriever: (
   };
 async function getAllContributions(
   login: string,
+  token: string,
   startDate: Date,
   endDate: Date
 ) {
@@ -464,7 +486,7 @@ async function getAllContributions(
         title: "Pull Requests 0/",
         task: (_, task) => {
           pPullRequests = retrieveAll(
-            prRecordRetriever(login, startDate, endDate),
+            prRecordRetriever(login, token, startDate, endDate),
             "Pull Requests",
             task
           );
@@ -475,7 +497,7 @@ async function getAllContributions(
         title: "Issues 0/",
         task: (_, task) => {
           pIssues = retrieveAll(
-            issueRecordRetriever(login, startDate, endDate),
+            issueRecordRetriever(login, token, startDate, endDate),
             "Issues",
             task
           );
@@ -486,7 +508,7 @@ async function getAllContributions(
         title: "Code Reviews 0/",
         task: (_, task) => {
           pReviews = retrieveAll(
-            codeReviewRecordRetriever(login, startDate, endDate),
+            codeReviewRecordRetriever(login, token, startDate, endDate),
             "Code Reviews",
             task
           );
@@ -497,7 +519,7 @@ async function getAllContributions(
         title: "Repositories 0/",
         task: (_, task) => {
           pRepos = retrieveAll(
-            repoRecordRetriever(login, startDate, endDate),
+            repoRecordRetriever(login, token, startDate, endDate),
             "Repositories",
             task
           );
@@ -530,6 +552,7 @@ interface NormalizedRepoCreation {
   releases: number;
 }
 interface NormalizedIssue {
+  user: string;
   url: string;
   title: string;
   createdAt: number;
@@ -542,6 +565,7 @@ interface NormalizedIssue {
   repoReleases: number;
 }
 interface NormalizedPullRequestReview {
+  user: string;
   createdAt: number;
   url: string;
   commentCount: number;
@@ -562,6 +586,7 @@ interface NormalizedPullRequestReview {
 function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
   const {
     url,
+    author: { login: user },
     title,
     comments: { totalCount: commentCount },
     createdAt,
@@ -577,6 +602,7 @@ function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
     }
   } = pr;
   return {
+    user,
     url,
     title,
     commentCount,
@@ -615,7 +641,7 @@ function normalizeIssue(issue: GQL.Issue): NormalizedIssue {
     title,
     comments: { totalCount: commentCount },
     createdAt,
-
+    author: { login: user },
     repository: {
       name: repoName,
       stargazers: { totalCount: repoStars },
@@ -625,6 +651,7 @@ function normalizeIssue(issue: GQL.Issue): NormalizedIssue {
     }
   } = issue;
   return {
+    user,
     url,
     title,
     commentCount,
@@ -643,6 +670,7 @@ function normalizePullRequestReview(
     url,
     createdAt: reviewCreatedAt,
     comments: { totalCount: commentCount },
+    author: { login: user },
     pullRequest: {
       createdAt: prCreatedAt,
       url: prUrl,
@@ -663,6 +691,7 @@ function normalizePullRequestReview(
 
   return {
     url,
+    user,
     prUrl: prUrl,
     prAuthor,
     prRepoStars,
@@ -680,9 +709,127 @@ function normalizePullRequestReview(
   };
 }
 
-export async function run(login: string, startDate: Date, endDate: Date) {
+export interface RunOptions {
+  combine: boolean;
+  outDir: string;
+}
+
+export async function run(
+  logins: string | null,
+  token: string,
+  startDate: Date,
+  endDate: Date,
+  options: RunOptions
+) {
+  const { outDir, combine } = options;
+  if (!logins) {
+    const singleUserData = await runForUser(null, token, startDate, endDate);
+    await writeData(singleUserData, outDir);
+    return;
+  }
+  const loginList = logins.split(/\s*,\s*/g);
+  const allData: {
+    pullRequests: NormalizedPullRequest[];
+    issues: NormalizedIssue[];
+    repos: NormalizedRepoCreation[];
+    reviews: NormalizedPullRequestReview[];
+  } = {
+    pullRequests: [],
+    issues: [],
+    repos: [],
+    reviews: []
+  };
+  for (let i of loginList) {
+    const userData = await runForUser(i, token, startDate, endDate);
+    if (combine) {
+      allData.issues = [...allData.issues, ...userData.issues];
+      allData.pullRequests = [
+        ...allData.pullRequests,
+        ...userData.pullRequests
+      ];
+      allData.repos = [...allData.repos, ...userData.repos];
+      allData.reviews = [...allData.reviews, ...userData.reviews];
+    } else {
+      await writeData(userData, join(outDir, i));
+    }
+  }
+  if (combine) {
+    console.log(chalk.red() + combine);
+
+    await writeData(allData, outDir);
+  }
+}
+
+async function writeData(
+  data: {
+    pullRequests: NormalizedPullRequest[];
+    issues: NormalizedIssue[];
+    repos: NormalizedRepoCreation[];
+    reviews: NormalizedPullRequestReview[];
+  },
+  dirPath: string
+) {
+  const { pullRequests, issues, reviews, repos } = data;
+
+  const tasks = new Listr([
+    {
+      title: `Writing data out to: ${chalk.bold.yellow(dirPath)}`,
+      task: () => {
+        if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true });
+        csvStringify(pullRequests, { header: true }, function(err, output) {
+          writeFileSync(join(dirPath, "pull-requests.csv"), output);
+        });
+        csvStringify(issues, { header: true }, function(err, output) {
+          writeFileSync(join(dirPath, "issues.csv"), output);
+        });
+        csvStringify(repos, { header: true }, function(err, output) {
+          writeFileSync(join(dirPath, "repos.csv"), output);
+        });
+        csvStringify(reviews, { header: true }, function(err, output) {
+          writeFileSync(join(dirPath, "reviews.csv"), output);
+        });
+      }
+    }
+  ]);
+  await tasks.run();
+}
+
+async function runForUser(
+  rawLogin: string | null,
+  token: string,
+  startDate: Date,
+  endDate: Date
+) {
+  if (!rawLogin) {
+    const {
+      viewer: { login: foundLogin }
+    } = await gqlQuery(
+      `{
+      viewer {
+        login
+      }
+    }`,
+      token
+    );
+    console.warn(
+      chalk.yellow(
+        `⚠️   No user specified. Falling back to auth token owner \"${foundLogin}\"`
+      )
+    );
+    rawLogin = foundLogin as string;
+  }
+  if (!rawLogin) throw new Error("Could not determine login");
+  const login = rawLogin;
+  console.log(
+    chalk.yellow("[ ") +
+      chalk.blue("Fetching data from GitHub for user ") +
+      chalk.bold.greenBright(login) +
+      " " +
+      chalk.yellow(" ]")
+  );
   const { pullRequests, issues, reviews, repos } = await getAllContributions(
     login,
+    token,
     startDate,
     endDate
   );
@@ -692,17 +839,10 @@ export async function run(login: string, startDate: Date, endDate: Date) {
   const normalizedRepos = repos.map(normalizeRepoCreation);
   const normalizedReviews = reviews.map(normalizePullRequestReview);
 
-  if (!existsSync("out")) mkdirSync("out");
-  csvStringify(normalizedPRs, { header: true }, function(err, output) {
-    writeFileSync(join("out", "pull-requests.csv"), output);
-  });
-  csvStringify(normalizedIssues, { header: true }, function(err, output) {
-    writeFileSync(join("out", "issues.csv"), output);
-  });
-  csvStringify(normalizedRepos, { header: true }, function(err, output) {
-    writeFileSync(join("out", "repos.csv"), output);
-  });
-  csvStringify(normalizedReviews, { header: true }, function(err, output) {
-    writeFileSync(join("out", "reviews.csv"), output);
-  });
+  return {
+    pullRequests: normalizedPRs,
+    issues: normalizedIssues,
+    repos: normalizedRepos.map(r => ({ ...r, user: login })),
+    reviews: normalizedReviews
+  };
 }

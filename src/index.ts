@@ -1,29 +1,64 @@
 import * as yargs from "yargs";
 import { run as getData } from "./get-data";
+
+const now = new Date();
+const nowString = `${now.getMonth()}-${now.getDate()}-${now.getFullYear()}`;
+
+const oneMonthAgo = new Date();
+oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+const oneMonthAgoString = `${oneMonthAgo.getMonth()}-${oneMonthAgo.getDate()}-${oneMonthAgo.getFullYear()}`;
+
 yargs
   .command("$0", "default command", yargs => {
-    const { start, end, login } = yargs.argv as yargs.Arguments<{
+    let {
+      start,
+      end,
+      login,
+      out: outDir,
+      combine,
+      token
+    } = yargs.argv as yargs.Arguments<{
       start: string;
       end: string;
+      out: string;
+      combine: boolean;
       login: string;
+      token: string;
     }>;
+    if (token === "$GH_TOKEN") token = process.env.GH_TOKEN || "";
+    if (!token)
+      throw new Error(
+        "Invalid github token. Please use the `-t` argument or GH_TOKEN environment variable"
+      );
     const s = new Date(start);
     const e = new Date(end);
-    console.log("args", login, new Date(start), new Date(end));
-    getData(login, s, e);
+    getData(login, token, s, e, { outDir, combine });
     return yargs;
   })
   .option("start", {
-    alias: "s"
+    alias: "s",
+    description: "Start date",
+    default: oneMonthAgoString
   })
   .option("end", {
-    alias: "e"
+    alias: "e",
+    description: "End date",
+    default: nowString
   })
   .option("login", {
-    alias: "l"
+    alias: "l",
+    description: "GitHub usernames, comma separated"
   })
-  .demandOption("l")
-  .demandOption("s")
-  .demandOption("e").argv;
-
-console.log("starting");
+  .option("out", {
+    alias: "o",
+    description: "output path",
+    default: "out"
+  })
+  .option("combine", {
+    description: "combine data into a single set of CSV output files"
+  })
+  .option("token", {
+    alias: "t",
+    description: "GitHub personal access token",
+    default: "$GH_TOKEN"
+  }).argv;
