@@ -1,6 +1,6 @@
 {
   "name": "@mike-north/github-report",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "main": "dist/index.js",
   "license": "BSD-2-Clause",
   "author": {

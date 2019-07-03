@@ -609,19 +609,29 @@ async function getAllContributions(
     {
       title: "Checking Rate Limit",
       task: async (_, task) => {
-        let isAlive = true;
-
-        const rateLimitInfo = await getRateLimitInfo(token);
-        if (!isAlive) return;
-        task.title = `Checking rate limit: ${chalk.bold(
-          "" + rateLimitInfo.remaining
-        )} remaining, reset in ${chalk.bold(
-          (
-            (rateLimitInfo.resetAt.valueOf() - new Date().valueOf()) /
-            (1000 * 60)
-          ).toFixed(2) + " minutes"
-        )}`;
-        limitResetTime = rateLimitInfo.resetAt;
+        async function attemptCheck() {
+          try {
+            await check();
+          } catch (err) {
+            await timeout(10000);
+            await attemptCheck();
+          }
+        }
+        async function check() {
+          let isAlive = true;
+          const rateLimitInfo = await getRateLimitInfo(token);
+          if (!isAlive) return;
+          task.title = `Checking rate limit: ${chalk.bold(
+            "" + rateLimitInfo.remaining
+          )} remaining, reset in ${chalk.bold(
+            (
+              (rateLimitInfo.resetAt.valueOf() - new Date().valueOf()) /
+              (1000 * 60)
+            ).toFixed(2) + " minutes"
+          )}`;
+          limitResetTime = rateLimitInfo.resetAt;
+        }
+        await attemptCheck();
       }
     },
     {
