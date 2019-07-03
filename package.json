@@ -1,8 +1,13 @@
 {
-  "name": "github-report",
-  "version": "1.0.0",
+  "name": "@mike-north/github-report",
+  "version": "0.0.1",
   "main": "dist/index.js",
   "license": "BSD-2-Clause",
+  "author": {
+    "url": "https://mike.works",
+    "email": "michael.l.north@gmail.com",
+    "name": "Mike North"
+  },
   "scripts": {
     "start": "yarn ts-node src/index.ts"
   },
