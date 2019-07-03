@@ -132,6 +132,8 @@ async function gqlQuery(query: string, token: string): Promise<any> {
   });
 }
 
+const timeout = (n: number) => new Promise(res => setTimeout(res, n));
+
 async function retrieveAll<T extends object>(
   recordRetriever: RecordRetriever<T>,
   recordName: string,
@@ -153,6 +155,9 @@ async function retrieveAll<T extends object>(
     const { records, totalCount } = result;
     allRecords.push(...records);
     task.title = `${recordName}: ${allRecords.length}/${totalCount}`;
+    if (result.pageInfo.hasNextPage) {
+      await timeout(3000);
+    }
   } while (result.pageInfo.hasNextPage);
   return allRecords;
 }
