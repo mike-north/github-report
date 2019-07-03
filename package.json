@@ -8,8 +8,12 @@
     "email": "michael.l.north@gmail.com",
     "name": "Mike North"
   },
+  "bin": {
+    "github-report": "bin/github-report"
+  },
   "scripts": {
-    "start": "yarn ts-node src/index.ts"
+    "build": "yarn tsc",
+    "start": "yarn build && dist/ind"
   },
   "dependencies": {
     "@octokit/graphql": "^2.0.0",
