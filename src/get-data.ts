@@ -11,9 +11,10 @@ dotenv.config();
 const BACKOFF_TIME_BASE = 30 * 1000; // 30s
 const BACKOFF_TIME_VARIANCE = 5 * 1000; // 5s
 
-function getBackoffTime() {
+function getBackoffTime(tries: number) {
+  const coeff = tries * tries * tries;
   const variance = Math.round(Math.random() * BACKOFF_TIME_VARIANCE);
-  return BACKOFF_TIME_BASE + variance;
+  return (BACKOFF_TIME_BASE + variance) * coeff;
 }
 
 interface PageInfo {
@@ -190,16 +191,15 @@ async function retrieveAll<T extends object>(
     } catch (err) {
       if (("" + err).indexOf("wait a few minutes")) {
         // throttle
-        const backoff = getBackoffTime();
+        const backoff = getBackoffTime(tries);
         await timeout(backoff, 100, n => {
           let elapsedStr = ((backoff - n) / 1000).toFixed(1).padStart(4, "0");
 
           updateLog(
             chalk.yellow(
-              `waiting ${chalk.bold.bgBlack.greenBright(
+              `triggered abuse detection; waiting ${chalk.bold.bgBlack.greenBright(
                 " " + elapsedStr + "s "
-              )} to avoid trigging abuse detection ` +
-                chalk.dim(`(try ${tries})`)
+              )} before trying again ` + chalk.dim(`(try ${tries})`)
             )
           );
         });
