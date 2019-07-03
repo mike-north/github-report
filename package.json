@@ -1,6 +1,6 @@
 {
   "name": "@mike-north/github-report",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "main": "dist/index.js",
   "license": "BSD-2-Clause",
   "author": {
@@ -20,9 +20,8 @@
     "chalk": "^2.4.2",
     "csv-stringify": "^5.3.0",
     "dotenv": "^8.0.0",
-    "typescript": "^3.5.2",
-    "yargs": "^13.2.4",
-    "listr": "^0.14.3"
+    "listr": "^0.14.3",
+    "yargs": "^13.2.4"
   },
   "volta": {
     "node": "12.5.0",
@@ -33,6 +32,7 @@
     "@types/listr": "^0.14.0",
     "@types/yargs": "^13.0.0",
     "eslint": "^6.0.1",
+    "typescript": "^3.5.2",
     "nodemon": "^1.19.1"
   }
 }

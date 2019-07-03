@@ -8,6 +8,14 @@ import chalk from "chalk";
 
 dotenv.config();
 
+const BACKOFF_TIME_BASE = 30 * 1000; // 30s
+const BACKOFF_TIME_VARIANCE = 5 * 1000; // 5s
+
+function getBackoffTime() {
+  const variance = Math.round(Math.random() * BACKOFF_TIME_VARIANCE);
+  return BACKOFF_TIME_BASE + variance;
+}
+
 interface PageInfo {
   startCursor: string | null;
   endCursor: string | null;
@@ -132,14 +140,29 @@ async function gqlQuery(query: string, token: string): Promise<any> {
   });
 }
 
-const timeout = (n: number) => new Promise(res => setTimeout(res, n));
+function timeout(n: number, tick?: number, tickFn?: (ms: number) => void) {
+  const start = Date.now();
+  let tickTask: ReturnType<typeof setInterval>;
+  if (tick && tickFn) {
+    tickTask = setInterval(() => {
+      let elapsed = Date.now() - start;
+      tickFn(elapsed);
+    }, tick);
+  }
+  return new Promise(res => {
+    setTimeout(() => {
+      clearInterval(tickTask);
+      res();
+    }, n);
+  });
+}
 
 async function retrieveAll<T extends object>(
   recordRetriever: RecordRetriever<T>,
   recordName: string,
   task: Listr.ListrTaskWrapper
 ): Promise<T[]> {
-  const allRecords = [];
+  const allRecords: T[] = [];
   let result: RecordPage<T> = {
     records: [],
     totalCount: 0,
@@ -150,14 +173,45 @@ async function retrieveAll<T extends object>(
       endCursor: null
     }
   };
-  do {
-    result = await recordRetriever(result.pageInfo.endCursor);
-    const { records, totalCount } = result;
-    allRecords.push(...records);
-    task.title = `${recordName}: ${allRecords.length}/${totalCount}`;
-    if (result.pageInfo.hasNextPage) {
-      await timeout(3000);
+  function updateLog(specialMessage?: string) {
+    task.title = [
+      `${recordName}: ${allRecords.length}/${result.totalCount}`,
+      specialMessage
+    ]
+      .filter(Boolean)
+      .join(chalk.dim(" - "));
+  }
+  async function tryPull(tries = 1) {
+    try {
+      result = await recordRetriever(result.pageInfo.endCursor);
+      const { records } = result;
+      allRecords.push(...records);
+      updateLog();
+    } catch (err) {
+      if (("" + err).indexOf("wait a few minutes")) {
+        // throttle
+        const backoff = getBackoffTime();
+        await timeout(backoff, 100, n => {
+          let elapsedStr = ((backoff - n) / 1000).toFixed(1).padStart(4, "0");
+
+          updateLog(
+            chalk.yellow(
+              `waiting ${chalk.bold.bgBlack.greenBright(
+                " " + elapsedStr + "s "
+              )} to avoid trigging abuse detection ` +
+                chalk.dim(`(try ${tries})`)
+            )
+          );
+        });
+        updateLog();
+        await tryPull(tries + 1);
+      } else {
+        throw err;
+      }
     }
+  }
+  do {
+    await tryPull();
   } while (result.pageInfo.hasNextPage);
   return allRecords;
 }
@@ -826,11 +880,8 @@ async function runForUser(
   if (!rawLogin) throw new Error("Could not determine login");
   const login = rawLogin;
   console.log(
-    chalk.yellow("[ ") +
-      chalk.blue("Fetching data from GitHub for user ") +
-      chalk.bold.greenBright(login) +
-      " " +
-      chalk.yellow(" ]")
+    chalk.blue("Fetching data from GitHub for user ") +
+      chalk.bold.greenBright(login)
   );
   const { pullRequests, issues, reviews, repos } = await getAllContributions(
     login,
