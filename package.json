@@ -1,6 +1,6 @@
 {
   "name": "@mike-north/github-report",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "main": "dist/index.js",
   "license": "BSD-2-Clause",
   "author": {
@@ -12,6 +12,7 @@
     "github-report": "bin/github-report"
   },
   "scripts": {
+    "prepublish": "yarn build",
     "build": "yarn tsc",
     "start": "yarn build && dist/ind"
   },

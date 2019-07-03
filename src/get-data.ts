@@ -986,6 +986,10 @@ async function writeData(
   await tasks.run();
 }
 
+function isDefined<T>(arg: T | undefined | null): arg is T {
+  return arg !== null && typeof arg !== "undefined";
+}
+
 async function runForUser(
   rawLogin: string | null,
   token: string,
@@ -1023,10 +1027,70 @@ async function runForUser(
     endDate
   );
 
-  const normalizedPRs = pullRequests.map(normalizePullRequest);
-  const normalizedIssues = issues.map(normalizeIssue);
-  const normalizedRepos = repos.map(normalizeRepoCreation);
-  const normalizedReviews = reviews.map(normalizePullRequestReview);
+  const normalizedPRs = pullRequests
+    .map(x => {
+      try {
+        return normalizePullRequest(x);
+      } catch (e) {
+        console.error(
+          `Encountered a problem normalizing the following entity ${JSON.stringify(
+            x,
+            null,
+            "  "
+          )}`
+        );
+        return null;
+      }
+    })
+    .filter(isDefined);
+  const normalizedIssues = issues
+    .map(x => {
+      try {
+        return normalizeIssue(x);
+      } catch (e) {
+        console.error(
+          `Encountered a problem normalizing the following entity ${JSON.stringify(
+            x,
+            null,
+            "  "
+          )}`
+        );
+        return null;
+      }
+    })
+    .filter(isDefined);
+  const normalizedRepos = repos
+    .map(x => {
+      try {
+        return normalizeRepoCreation(x);
+      } catch (e) {
+        console.error(
+          `Encountered a problem normalizing the following entity ${JSON.stringify(
+            x,
+            null,
+            "  "
+          )}`
+        );
+        return null;
+      }
+    })
+    .filter(isDefined);
+  const normalizedReviews = reviews
+    .map(x => {
+      try {
+        return normalizePullRequestReview(x);
+      } catch (e) {
+        console.error(
+          `Encountered a problem normalizing the following entity ${JSON.stringify(
+            x,
+            null,
+            "  "
+          )}`
+        );
+        return null;
+      }
+    })
+    .filter(isDefined);
 
   return {
     pullRequests: normalizedPRs,
