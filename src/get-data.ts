@@ -776,7 +776,7 @@ interface NormalizedPullRequestReview {
 function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
   const {
     url,
-    author: { login: user },
+    author: { login: user } = { login: "unknown" },
     title,
     comments: { totalCount: commentCount },
     createdAt,
@@ -788,7 +788,7 @@ function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
       stargazers: { totalCount: repoStars },
       languages: langsArray,
       releases: { totalCount: repoReleases },
-      owner: { login: repoOwner }
+      owner: { login: repoOwner } = { login: "unknown" }
     }
   } = pr;
   return {
@@ -813,7 +813,7 @@ function normalizeRepoCreation(repo: GQL.RepoCreation): NormalizedRepoCreation {
     url,
     stargazers: { totalCount: stars },
     releases: { totalCount: releases },
-    owner: { login: owner },
+    owner: { login: owner } = { login: "unknown" },
     languages: langsArray
   } = repo;
   return {
@@ -831,13 +831,13 @@ function normalizeIssue(issue: GQL.Issue): NormalizedIssue {
     title,
     comments: { totalCount: commentCount },
     createdAt,
-    author: { login: user },
+    author: { login: user } = { login: "unknown" },
     repository: {
       name: repoName,
       stargazers: { totalCount: repoStars },
       languages: langsArray,
       releases: { totalCount: repoReleases },
-      owner: { login: repoOwner }
+      owner: { login: repoOwner } = { login: "unknown" }
     }
   } = issue;
   return {
@@ -860,18 +860,18 @@ function normalizePullRequestReview(
     url,
     createdAt: reviewCreatedAt,
     comments: { totalCount: commentCount },
-    author: { login: user },
+    author: { login: user } = { login: "unknown" },
     pullRequest: {
       createdAt: prCreatedAt,
       url: prUrl,
-      author: { login: prAuthor },
+      author: { login: prAuthor } = { login: "unknown" },
       additions: prAdditions,
       deletions: prDeletions,
       changedFiles: prChangedFiles,
       repository: {
         url: prRepoUrl,
         name: prRepoName,
-        owner: { login: prRepoOwner },
+        owner: { login: prRepoOwner } = { login: "unknown" },
         releases: { totalCount: prRepoReleaseCount },
         stargazers: { totalCount: prRepoStars },
         languages: { nodes: prRepoLangsArr }
