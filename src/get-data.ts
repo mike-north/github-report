@@ -560,7 +560,7 @@ interface NormalizedIssue {
   user: string;
   url: string;
   title: string;
-  createdAt: number;
+  createdAt: string;
   commentCount: number;
 
   repoLangs: string;
@@ -571,14 +571,14 @@ interface NormalizedIssue {
 }
 interface NormalizedPullRequestReview {
   user: string;
-  createdAt: number;
+  createdAt: string;
   url: string;
   commentCount: number;
   prUrl: string;
   prAdditions: number;
   prDeletions: number;
   prChangedFiles: number;
-  prCreatedAt: number;
+  prCreatedAt: string;
   prAuthor: string;
   prRepoStars: number;
   prRepoReleaseCount: number;
@@ -611,7 +611,7 @@ function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
     url,
     title,
     commentCount,
-    createdAt: new Date(createdAt).valueOf(),
+    createdAt: new Date(createdAt).toDateString(),
     additions,
     deletions,
     changedFiles,
@@ -660,7 +660,7 @@ function normalizeIssue(issue: GQL.Issue): NormalizedIssue {
     url,
     title,
     commentCount,
-    createdAt: new Date(createdAt).valueOf(),
+    createdAt: new Date(createdAt).toDateString(),
     repoStars,
     repoName,
     repoReleases,
@@ -709,8 +709,8 @@ function normalizePullRequestReview(
     prDeletions,
     prChangedFiles,
     commentCount,
-    createdAt: new Date(reviewCreatedAt).valueOf(),
-    prCreatedAt: new Date(prCreatedAt).valueOf()
+    createdAt: new Date(reviewCreatedAt).toDateString(),
+    prCreatedAt: new Date(prCreatedAt).toDateString()
   };
 }
 
