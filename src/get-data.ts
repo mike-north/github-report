@@ -35,6 +35,17 @@ interface RecordRetriever<T extends object> {
 }
 
 namespace GQL {
+  export interface RateLimitResponse {
+    viewer: {
+      login: string;
+    };
+    rateLimit: {
+      limit: number;
+      cost: number;
+      remaining: number;
+      resetAt: number;
+    };
+  }
   export interface Issue {
     url: string;
     title: string;
@@ -156,6 +167,33 @@ function timeout(n: number, tick?: number, tickFn?: (ms: number) => void) {
       res();
     }, n);
   });
+}
+
+async function getRateLimitInfo(
+  token: string
+): Promise<{ remaining: number; resetAt: Date }> {
+  const resp: GQL.RateLimitResponse = await gqlQuery(
+    `{
+  viewer {
+    login
+  }
+  rateLimit {
+    limit
+    cost
+    remaining
+    resetAt
+  }
+}`,
+    token
+  );
+  const {
+    rateLimit: { remaining, resetAt }
+  } = resp;
+
+  return {
+    remaining,
+    resetAt: new Date(resetAt)
+  };
 }
 
 async function retrieveAll<T extends object>(
@@ -539,56 +577,103 @@ async function getAllContributions(
   let pReviews!: Promise<GQL.PullRequestReview[]>;
   let pRepos!: Promise<GQL.RepoCreation[]>;
 
-  const tasks = new Listr(
-    [
-      {
-        title: "Pull Requests 0/",
-        task: (_, task) => {
-          pPullRequests = retrieveAll(
-            prRecordRetriever(login, token, startDate, endDate),
-            "Pull Requests",
-            task
-          );
-          return pPullRequests;
-        }
-      },
-      {
-        title: "Issues 0/",
-        task: (_, task) => {
-          pIssues = retrieveAll(
-            issueRecordRetriever(login, token, startDate, endDate),
-            "Issues",
-            task
-          );
-          return pIssues;
-        }
-      },
-      {
-        title: "Code Reviews 0/",
-        task: (_, task) => {
-          pReviews = retrieveAll(
-            codeReviewRecordRetriever(login, token, startDate, endDate),
-            "Code Reviews",
-            task
-          );
-          return pReviews;
-        }
-      },
-      {
-        title: "Repositories 0/",
-        task: (_, task) => {
-          pRepos = retrieveAll(
-            repoRecordRetriever(login, token, startDate, endDate),
-            "Repositories",
-            task
-          );
-          return pRepos;
-        }
+  let dataPromise!: Promise<any>;
+  const tasks = new Listr([
+    {
+      title: "Checking Rate Limit",
+      task: async (_, task) => {
+        let isAlive = true;
+
+        const rateLimitInfo = await getRateLimitInfo(token);
+        if (!isAlive) return;
+        task.title = `Checking rate limit: ${chalk.bold(
+          "" + rateLimitInfo.remaining
+        )} remaining, reset in ${chalk.bold(
+          (
+            (rateLimitInfo.resetAt.valueOf() - new Date().valueOf()) /
+            (1000 * 60)
+          ).toFixed(2) + " minutes"
+        )}`;
       }
-    ],
-    { concurrent: true }
-  );
-  await tasks.run();
+    },
+    {
+      title: "Retrieving data",
+      task: async (context, retrieveTask) => {
+        const p = new Listr(
+          [
+            {
+              title: "Pull Requests 0/",
+              task: (_, task) => {
+                pPullRequests = retrieveAll(
+                  prRecordRetriever(login, token, startDate, endDate),
+                  "Pull Requests",
+                  task
+                );
+                return pPullRequests;
+              }
+            },
+            {
+              title: "Issues 0/",
+              task: (_, task) => {
+                pIssues = retrieveAll(
+                  issueRecordRetriever(login, token, startDate, endDate),
+                  "Issues",
+                  task
+                );
+                return pIssues;
+              }
+            },
+            {
+              title: "Code Reviews 0/",
+              task: (_, task) => {
+                pReviews = retrieveAll(
+                  codeReviewRecordRetriever(login, token, startDate, endDate),
+                  "Code Reviews",
+                  task
+                );
+                return pReviews;
+              }
+            },
+            {
+              title: "Repositories 0/",
+              task: (_, task) => {
+                pRepos = retrieveAll(
+                  repoRecordRetriever(login, token, startDate, endDate),
+                  "Repositories",
+                  task
+                );
+                return pRepos;
+              }
+            }
+          ],
+          { concurrent: true }
+        );
+        context.retrieveTask = retrieveTask;
+
+        return p;
+      }
+    },
+    {
+      title: "Cleaning up",
+      task: async context => {
+        dataPromise.then(([issues, repos, reviews, pullRequests]) => {
+          context.retrieveTask.title = [
+            `Retrieved data: `,
+            [
+              chalk.bold(`${chalk.cyanBright(pullRequests.length)} PRs`),
+              chalk.bold(`${chalk.cyanBright(issues.length)} Issues`),
+              chalk.bold(`${chalk.cyanBright(repos.length)} Repos created`),
+              chalk.bold(`${chalk.cyanBright(reviews.length)} Code reviews`)
+            ].join(", ")
+          ].join("");
+        });
+      }
+    }
+  ]);
+  const run = tasks.run();
+  await timeout(500);
+  dataPromise = Promise.all([pIssues, pRepos, pReviews, pPullRequests]);
+  await run;
   return {
     pullRequests: await pPullRequests,
     reviews: await pReviews,
@@ -832,7 +917,9 @@ async function writeData(
 
   const tasks = new Listr([
     {
-      title: `Writing data out to: ${chalk.bold.yellow(dirPath)}`,
+      title: `Writing data out to: ${chalk.bold.yellow(
+        join(process.cwd(), dirPath)
+      )}`,
       task: () => {
         if (!existsSync(dirPath)) mkdirSync(dirPath, { recursive: true });
         csvStringify(pullRequests, { header: true }, function(err, output) {
