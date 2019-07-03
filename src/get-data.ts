@@ -199,7 +199,9 @@ async function getRateLimitInfo(
 async function retrieveAll<T extends object>(
   recordRetriever: RecordRetriever<T>,
   recordName: string,
-  task: Listr.ListrTaskWrapper
+  task: Listr.ListrTaskWrapper,
+  token: string,
+  limitResetAt: Date
 ): Promise<T[]> {
   const allRecords: T[] = [];
   let result: RecordPage<T> = {
@@ -220,7 +222,7 @@ async function retrieveAll<T extends object>(
       .filter(Boolean)
       .join(chalk.dim(" - "));
   }
-  async function tryPull(tries = 1) {
+  async function tryPull(limitResetTime: Date, tries = 1) {
     try {
       result = await recordRetriever(result.pageInfo.endCursor);
       const { records } = result;
@@ -228,28 +230,52 @@ async function retrieveAll<T extends object>(
       updateLog();
     } catch (err) {
       if (("" + err).indexOf("wait a few minutes")) {
-        // throttle
-        const backoff = getBackoffTime(tries);
-        await timeout(backoff, 100, n => {
-          let elapsedStr = ((backoff - n) / 1000).toFixed(1).padStart(4, "0");
+        if (tries < 4) {
+          // normal throttle
+          const backoff = getBackoffTime(tries);
+          await timeout(backoff, 100, n => {
+            let elapsedStr = ((backoff - n) / 1000).toFixed(1).padStart(4, "0");
 
-          updateLog(
-            chalk.yellow(
-              `triggered abuse detection; waiting ${chalk.bold.bgBlack.greenBright(
-                " " + elapsedStr + "s "
-              )} before trying again ` + chalk.dim(`(try ${tries})`)
-            )
-          );
-        });
-        updateLog();
-        await tryPull(tries + 1);
+            updateLog(
+              chalk.yellow(
+                `triggered abuse detection; waiting ${chalk.bold.bgBlack.greenBright(
+                  " " + elapsedStr + "s "
+                )} before trying again ` + chalk.dim(`(try ${tries})`)
+              )
+            );
+          });
+          updateLog();
+          await tryPull(limitResetTime, tries + 1);
+        } else {
+          // wait for full rate limit reset
+          let waitTime =
+            1000 + (limitResetTime.valueOf() - new Date().valueOf());
+          await timeout(waitTime, 100, n => {
+            let elapsedStr = ((waitTime - n) / 1000)
+              .toFixed(1)
+              .padStart(4, "0");
+
+            updateLog(
+              chalk.yellow(
+                `waiting ${chalk.bold.bgBlack.greenBright(
+                  " " + elapsedStr + "s "
+                )} for full rate limit reset before trying again `
+              )
+            );
+          });
+          const newRateInfo = await getRateLimitInfo(token);
+          tryPull(newRateInfo.resetAt, 1); // consider this a new "first try"
+        }
       } else {
         throw err;
       }
     }
   }
   do {
-    await tryPull();
+    await tryPull(limitResetAt);
+    if (result.pageInfo.hasNextPage) {
+      await timeout(3000);
+    }
   } while (result.pageInfo.hasNextPage);
   return allRecords;
 }
@@ -578,6 +604,7 @@ async function getAllContributions(
   let pRepos!: Promise<GQL.RepoCreation[]>;
 
   let dataPromise!: Promise<any>;
+  let limitResetTime: Date;
   const tasks = new Listr([
     {
       title: "Checking Rate Limit",
@@ -594,6 +621,7 @@ async function getAllContributions(
             (1000 * 60)
           ).toFixed(2) + " minutes"
         )}`;
+        limitResetTime = rateLimitInfo.resetAt;
       }
     },
     {
@@ -607,7 +635,9 @@ async function getAllContributions(
                 pPullRequests = retrieveAll(
                   prRecordRetriever(login, token, startDate, endDate),
                   "Pull Requests",
-                  task
+                  task,
+                  token,
+                  limitResetTime
                 );
                 return pPullRequests;
               }
@@ -618,7 +648,9 @@ async function getAllContributions(
                 pIssues = retrieveAll(
                   issueRecordRetriever(login, token, startDate, endDate),
                   "Issues",
-                  task
+                  task,
+                  token,
+                  limitResetTime
                 );
                 return pIssues;
               }
@@ -629,7 +661,9 @@ async function getAllContributions(
                 pReviews = retrieveAll(
                   codeReviewRecordRetriever(login, token, startDate, endDate),
                   "Code Reviews",
-                  task
+                  task,
+                  token,
+                  limitResetTime
                 );
                 return pReviews;
               }
@@ -640,7 +674,9 @@ async function getAllContributions(
                 pRepos = retrieveAll(
                   repoRecordRetriever(login, token, startDate, endDate),
                   "Repositories",
-                  task
+                  task,
+                  token,
+                  limitResetTime
                 );
                 return pRepos;
               }
@@ -656,17 +692,17 @@ async function getAllContributions(
     {
       title: "Cleaning up",
       task: async context => {
-        dataPromise.then(([issues, repos, reviews, pullRequests]) => {
-          context.retrieveTask.title = [
-            `Retrieved data: `,
-            [
-              chalk.bold(`${chalk.cyanBright(pullRequests.length)} PRs`),
-              chalk.bold(`${chalk.cyanBright(issues.length)} Issues`),
-              chalk.bold(`${chalk.cyanBright(repos.length)} Repos created`),
-              chalk.bold(`${chalk.cyanBright(reviews.length)} Code reviews`)
-            ].join(", ")
-          ].join("");
-        });
+        const [issues, repos, reviews, pullRequests] = await dataPromise;
+
+        context.retrieveTask.title = [
+          `Retrieved data: `,
+          [
+            chalk.bold(`${chalk.cyanBright(pullRequests.length)} PRs`),
+            chalk.bold(`${chalk.cyanBright(issues.length)} Issues`),
+            chalk.bold(`${chalk.cyanBright(repos.length)} Repos created`),
+            chalk.bold(`${chalk.cyanBright(reviews.length)} Code reviews`)
+          ].join(", ")
+        ].join("");
       }
     }
   ]);
