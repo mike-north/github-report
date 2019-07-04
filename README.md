@@ -12,7 +12,7 @@ npx @mike-north/github-report \
   --token <GITHUB_TOKEN>
 ```
 
-<img src="https://mike-north.github.io/github-report/public/img/usage.svg" />
+<img src="https://mike-north.github.io/github-report/usage.svg" />
 
 ### Options
 
