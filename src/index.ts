@@ -1,5 +1,8 @@
 import * as yargs from "yargs";
 import { run as getData } from "./get-data";
+import { join } from "path";
+
+const pkg = require(join(__dirname, "..", "package.json"));
 
 const now = new Date();
 const nowString = `${now.getMonth()}-${now.getDate()}-${now.getFullYear()}`;
@@ -7,6 +10,8 @@ const nowString = `${now.getMonth()}-${now.getDate()}-${now.getFullYear()}`;
 const oneMonthAgo = new Date();
 oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 const oneMonthAgoString = `${oneMonthAgo.getMonth()}-${oneMonthAgo.getDate()}-${oneMonthAgo.getFullYear()}`;
+
+console.log(`\nMike\'s GitHub Activity Report v${pkg.version}\n`);
 
 yargs
   .command("$0", "default command", yargs => {

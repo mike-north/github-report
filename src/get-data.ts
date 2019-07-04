@@ -820,7 +820,6 @@ function normalizeRepoCreation(repo: GQL.RepoCreation): NormalizedRepoCreation {
     languages: langsArray,
     isFork
   } = repo;
-  console.log(`${owner}/${name}: ${isFork}`);
   return {
     name,
     url,
