@@ -78,6 +78,7 @@ namespace GQL {
 
   export interface RepoCreation {
     url: string;
+    isFork: boolean;
     stargazers: {
       totalCount: number;
     };
@@ -396,6 +397,7 @@ const repoRecordRetriever: (
               nodes {
                 repository {
                   url
+                  isFork
                   stargazers {
                     totalCount
                   }
@@ -407,7 +409,7 @@ const repoRecordRetriever: (
                       name
                     }
                   }
-                  name,
+                  name
                   owner: owner {
                     login
                   }
@@ -739,6 +741,7 @@ interface NormalizedRepoCreation {
   name: string;
   owner: string;
   stars: number;
+  isFork: boolean;
   releases: number;
 }
 interface NormalizedIssue {
@@ -814,12 +817,15 @@ function normalizeRepoCreation(repo: GQL.RepoCreation): NormalizedRepoCreation {
     stargazers: { totalCount: stars },
     releases: { totalCount: releases },
     owner: { login: owner } = { login: "unknown" },
-    languages: langsArray
+    languages: langsArray,
+    isFork
   } = repo;
+  console.log(`${owner}/${name}: ${isFork}`);
   return {
     name,
     url,
     stars,
+    isFork,
     releases,
     owner,
     langs: langsArray.nodes.map(l => l.name).join(", ")
