@@ -573,6 +573,7 @@ const codeReviewRecordRetriever: (
                         }
                       }
                       name,
+                      url,
                       owner: owner {
                         login
                       }
@@ -751,6 +752,7 @@ interface NormalizedIssue {
   createdAt: string;
   commentCount: number;
 
+  repoUrl: string;
   repoLangs: string;
   repoName: string;
   repoOwner: string;
@@ -764,6 +766,7 @@ interface NormalizedPullRequestReview {
   commentCount: number;
   prUrl: string;
   prAdditions: number;
+  prTitle: string;
   prDeletions: number;
   prChangedFiles: number;
   prCreatedAt: string;
@@ -787,6 +790,7 @@ function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
     deletions,
     changedFiles,
     repository: {
+      url: repoUrl,
       name: repoName,
       stargazers: { totalCount: repoStars },
       languages: langsArray,
@@ -805,6 +809,7 @@ function normalizePullRequest(pr: GQL.PullRequest): NormalizedPullRequest {
     changedFiles,
     repoStars,
     repoName,
+    repoUrl,
     repoReleases,
     repoOwner,
     repoLangs: langsArray.nodes.map(l => l.name).join(", ")
@@ -839,6 +844,7 @@ function normalizeIssue(issue: GQL.Issue): NormalizedIssue {
     author: { login: user } = { login: "unknown" },
     repository: {
       name: repoName,
+      url: repoUrl,
       stargazers: { totalCount: repoStars },
       languages: langsArray,
       releases: { totalCount: repoReleases },
@@ -855,6 +861,7 @@ function normalizeIssue(issue: GQL.Issue): NormalizedIssue {
     repoName,
     repoReleases,
     repoOwner,
+    repoUrl,
     repoLangs: langsArray.nodes.map(l => l.name).join(", ")
   };
 }
@@ -869,6 +876,7 @@ function normalizePullRequestReview(
     pullRequest: {
       createdAt: prCreatedAt,
       url: prUrl,
+      title: prTitle,
       author: { login: prAuthor } = { login: "unknown" },
       additions: prAdditions,
       deletions: prDeletions,
@@ -891,6 +899,7 @@ function normalizePullRequestReview(
     prAuthor,
     prRepoStars,
     prRepoUrl,
+    prTitle,
     prRepoLanguages: prRepoLangsArr.map(l => l.name).join(", "),
     prRepoReleaseCount,
     prRepoName,
