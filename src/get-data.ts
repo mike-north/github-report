@@ -705,7 +705,12 @@ async function getAllContributions(
     {
       title: "Cleaning up",
       task: async context => {
-        const [issues, repos, reviews, pullRequests] = await dataPromise;
+        const [
+          issues = [],
+          repos = [],
+          reviews = [],
+          pullRequests = []
+        ] = await dataPromise;
 
         context.retrieveTask.title = [
           `Retrieved data: `,
